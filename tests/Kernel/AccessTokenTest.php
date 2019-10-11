@@ -22,6 +22,8 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Psr\SimpleCache\CacheInterface;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Simple\FilesystemCache;
 
 class AccessTokenTest extends TestCase
 {
@@ -33,20 +35,24 @@ class AccessTokenTest extends TestCase
         $this->assertInstanceOf(CacheInterface::class, $token->getCache());
 
         // prepended cache instance
-        $cache = \Mockery::mock(CacheInterface::class);
+        if (\class_exists('Symfony\Component\Cache\Psr16Cache')) {
+            $cache = new ArrayAdapter();
+        } else {
+            $cache = new FilesystemCache();
+        }
+
         $app['cache'] = function () use ($cache) {
             return $cache;
         };
-        $token = \Mockery::mock(AccessToken::class.'[setCache]', [$app]);
+        $token = \Mockery::mock(AccessToken::class, [$app])->makePartial();
 
         $this->assertInstanceOf(CacheInterface::class, $token->getCache());
     }
 
     public function testGetToken()
     {
-        $app = \Mockery::mock(ServiceContainer::class)->makePartial()->shouldAllowMockingProtectedMethods();
         $cache = \Mockery::mock(CacheInterface::class);
-        $token = \Mockery::mock(AccessToken::class.'[getCacheKey,getCache,requestToken,setToken,getCredentials]', [$app])
+        $token = \Mockery::mock(AccessToken::class.'[getCacheKey,getCache,requestToken,setToken,getCredentials]', [new ServiceContainer()])
                             ->shouldAllowMockingProtectedMethods();
         $credentials = [
             'foo' => 'foo',
